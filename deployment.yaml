@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fargate-operator
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      application: fargate-operator
+  template:
+    metadata:
+      labels:
+        application: fargate-operator
+    spec:
+      serviceAccountName: fargate
+      containers:
+      - name: fargate-operator
+        image: jicowan/fargate-operator:v2.5
+        imagePullPolicy: Always
