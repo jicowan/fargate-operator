@@ -77,11 +77,12 @@ def check_list_size(selectors):
 def check_cluster_version(version, platform_version):
     if version not in ['1.14']:
         logging.error("Cluster version has to be at 1.14.8 or above to use Fargate")
-        if platform_version not in ['eks.5', 'eks.6', 'eks.7']:
-            logging.error("Cluster version has to be at 1.14.8 and eks.5 or above to use Fargate.")
-            return Exception
-        else:
-            return Exception
+        return Exception
+    elif version in ['1.14'] and platform_version not in ['eks.5', 'eks.6', 'eks.7']:
+        logging.error("Cluster version has to be at 1.14.8 and eks.5 or above to use Fargate.")
+        return Exception
+    else:
+        logging.info(f'Cluster at the correct version and patch level.')
 
 def is_valid_role(execution_role_arn):
     role_name = execution_role_arn[execution_role_arn.rfind("/")+1:]
