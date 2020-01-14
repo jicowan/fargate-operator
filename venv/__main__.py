@@ -121,6 +121,7 @@ def get_metadata():
 def delete_fn(meta, spec, namespace, logger, **kwargs):
     cluster_name, region = get_metadata()
     fargate_profile_name = meta.get('name')
+    # TODO: check to see whether profile exists
     delete_fargate_profile(cluster_name, fargate_profile_name)
 
 def delete_fargate_profile(cluster_name, fargate_profile_name):
@@ -137,6 +138,7 @@ def create_fn(meta, spec, namespace, logger, **kwargs):
     cluster_name, region = get_metadata()
     cluster = Cluster(**eks.describe_cluster(name = cluster_name)['cluster'])
     profile_name = meta.get('name')
+    # TODO: Check to see whether there is a profile with the same name
     profile_spec = FargateProfile(**spec)
     valid_subnets = is_valid_subnet(profile_spec.subnets, cluster.resourcesVpcConfig['vpcId'], region)
     if valid_subnets != []:
