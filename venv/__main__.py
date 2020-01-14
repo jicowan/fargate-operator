@@ -38,17 +38,19 @@ def create_profile(name, cluster, execution_role_arn, subnets, selectors, tags):
     except BaseException as e:
         logging.error(e)
 
-def is_public_subnet(subnets):
-    ''' Since there is no API to determine whether a subnet is public or private, I log an error when a profile includes
-    a subnet with the MapPublicIpOnLaunch=True attribute. '''
-    subnet_properties = ec2.describe_subnets(SubnetIds=subnets)
-    private_subnets = []
-    for subnet in subnet_properties['Subnets']:
-        if subnet['MapPublicIpOnLaunch']:
-            logging.error(f'{subnet.get("SubnetId")} is a public subnet. Fargate tasks can only be deployed onto private subnets')
-        else:
-            private_subnets.append(subnet)
-    return private_subnets
+def is_public_subnet(subnets, vpcId, region):
+    '''Method to determine whether the subnets referenced in the Fargate profile are public.'''
+    ec2_resource = resource('ec2', region_name=region)
+    vpc = ec2_resource.Vpc(vpcId)
+    route_tables = vpc.route_tables.all()
+    for rt in route_tables:
+        for route in ec2_resource.RouteTable(rt.route_table_id).routes:
+            if route.destination_cidr_block == '0.0.0.0/0':
+                logging.info(f'{rt.id} has a route to 0.0.0.0/0')
+                for rt_attribute in rt.associations_attribute:
+                    for subnet in subnets:
+                        if rt_attribute['SubnetId'] == subnet:
+                            logging.error(f'{subnet} is a public subnet')
 
 def is_valid_subnet(subnets, vpcId, region):
     ec2 = resource('ec2', region_name=region)
@@ -67,7 +69,7 @@ def is_valid_subnet(subnets, vpcId, region):
     return valid_subnets
 
 def check_list_size(selectors):
-    '''Enforced through CRD schema'''
+    '''Enforced through CRD schema.  No longer necessary'''
     if len(selectors) > 5:
         logging.error("Exceeded maximum selectors. You may only have up to 5 selectors in a Fargate profile.")
         return Exception
@@ -105,7 +107,6 @@ def get_metadata():
         r = requests.get("http://169.254.169.254/latest/dynamic/instance-identity/document")
     except BaseException as e:
         logging.error(f'Metadata is inaccessible: {e}')
-        #raise Exception(f'Metadata is inaccessible: {e}')
     response_json = r.json()
     region = response_json.get('region')
     instance_id = response_json.get('instanceId')
@@ -139,13 +140,9 @@ def create_fn(meta, spec, namespace, logger, **kwargs):
     profile_spec = FargateProfile(**spec)
     valid_subnets = is_valid_subnet(profile_spec.subnets, cluster.resourcesVpcConfig['vpcId'], region)
     if valid_subnets != []:
-        valid_subnets = is_public_subnet(valid_subnets)
-        if valid_subnets != []:
-            if is_valid_role(profile_spec.podExecutionRoleArn) is not Exception and \
-            check_cluster_version(cluster.version, cluster.platformVersion) is not Exception:
-                create_profile(profile_name, cluster_name, profile_spec.podExecutionRoleArn, valid_subnets, profile_spec.selectors, profile_spec.tags)
-            else:
-                logging.error(f'Invalid data in FargateProfile')
+        if is_valid_role(profile_spec.podExecutionRoleArn) is not Exception and \
+        check_cluster_version(cluster.version, cluster.platformVersion) is not Exception:
+            create_profile(profile_name, cluster_name, profile_spec.podExecutionRoleArn, valid_subnets, profile_spec.selectors, profile_spec.tags)
         else:
             logging.error(f'Invalid data in FargateProfile')
     else:
