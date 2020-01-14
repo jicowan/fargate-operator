@@ -6,6 +6,8 @@ from time import sleep
 from boto3 import client
 from boto3 import resource
 
+# TODO: Create startup handler
+
 eks = client('eks', region_name='us-east-2')
 ec2 = client('ec2', region_name='us-east-2')
 iam = resource('iam')
