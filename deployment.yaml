@@ -17,5 +17,5 @@ spec:
       serviceAccountName: fargate
       containers:
       - name: fargate-operator
-        image: jicowan/fargate-operator:v2.5
+        image: jicowan/fargate-operator:v2.6
         imagePullPolicy: Always

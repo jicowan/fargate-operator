@@ -23,6 +23,7 @@ spec:
            properties:
              subnets:
                type: array
+               pattern: '(subnet-)[0-9a-z]{17}'
              podExecutionRoleArn:
                type: string
              tags:
