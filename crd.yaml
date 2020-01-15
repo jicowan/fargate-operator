@@ -13,6 +13,8 @@ spec:
      kind: FargateProfile
      plural: fargateprofiles
      singular: fargateprofile
+     shortNames:
+     - fp
    #preserveUnknownFields: false
    validation:
      openAPIV3Schema:
