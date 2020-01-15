@@ -1,4 +1,4 @@
-# group-operator
+# fargate-operator
 The fargate-operator is a Kubernetes operator that allows you to manage Fargate Profiles from Kubernetes. 
 It utilizes Zalando's kopf, a framework for writing Kubernetes operators in Python.  The operator watches for the creation,  
 or deletion of a FargateProfile object.  The FargateProfile object is implemented as a Custom Resource Definition (CRD) 
