@@ -19,7 +19,7 @@ spec:
       - name: fargate-operator
         image: jicowan/fargate-operator:v2.7
         imagePullPolicy: Always
-        #livenessProbe:
-        #  httpGet:
-        #    path: /healthz
-        #    port: 8080
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080

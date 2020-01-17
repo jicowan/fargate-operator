@@ -133,14 +133,14 @@ def delete_fargate_profile(clusterName, fargateProfileName):
     logging.info(f'Fargate profile {fargateProfileName} has been deleted.')
 
 @kopf.on.resume('jicomusic.com', 'v1', 'fargateprofiles')
-@kopf.on.create('jicomusic.com', 'v1', 'fargateprofiles')
+@kopf.on.create('jicomusic.com', 'v1', 'fargateprofiles', retries=3, backoff=5.0)
 def create_fn(meta, spec, namespace, logger, **kwargs):
     cluster = Cluster(**eks.describe_cluster(name = cluster_name)['cluster'])
     profile_name = meta.get('name')
     # TODO: Check to see whether there is a profile with the same name
     profile_spec = FargateProfile(**spec)
     valid_subnets = is_valid_subnet(profile_spec.subnets, cluster.resourcesVpcConfig['vpcId'])
-    #is_public_subnet(valid_subnets,cluster.resourcesVpcConfig['vpcId'], region)
+    #is_public_subnet(valid_subnets,cluster.resourcesVpcConfig['vpcId'])
     if valid_subnets != []:
         if is_valid_role(profile_spec.podExecutionRoleArn) is not Exception and \
         check_cluster_version(cluster.version, cluster.platformVersion) is not Exception:
