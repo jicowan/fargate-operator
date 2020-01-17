@@ -1,17 +1,14 @@
 import kopf
 import requests
+import asyncio
 import logging
 import json
 from time import sleep
 from boto3 import client
 from boto3 import resource
 
-# TODO: Create startup handler
-
-eks = client('eks', region_name='us-east-2')
-ec2 = client('ec2', region_name='us-east-2')
-iam = resource('iam')
-logging.basicConfig(format='%(asctime)s [%(levelname)s] - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging.INFO)
+#@kopf.on.startup()
+#async def startup_fn(logger, **kwarg):
 
 class FargateProfile(object):
     def __init__(self, subnets, podExecutionRoleArn, selectors, tags, *args, **kwargs):
@@ -27,20 +24,20 @@ class Cluster(object):
         self.platformVersion = platformVersion
         self.resourcesVpcConfig = resourcesVpcConfig
 
-def create_profile(name, cluster, execution_role_arn, subnets, selectors, tags):
+def create_profile(name, cluster, executionRoleArn, subnets, selectors, tags):
     try:
         eks.create_fargate_profile(
-            fargateProfileName = name,
-            clusterName = cluster,
-            podExecutionRoleArn = execution_role_arn,
-            subnets = subnets,
-            selectors = selectors,
-            tags = tags
+            fargateProfileName=name,
+            clusterName=cluster,
+            podExecutionRoleArn=executionRoleArn,
+            subnets=subnets,
+            selectors=selectors,
+            tags=tags
         )
     except BaseException as e:
         logging.error(e)
 
-def is_public_subnet(subnets, vpcId, region):
+def is_public_subnet(subnets, vpcId):
     '''Method to determine whether the subnets referenced in the Fargate profile are public.'''
     ec2_resource = resource('ec2', region_name=region)
     vpc = ec2_resource.Vpc(vpcId)
@@ -54,12 +51,12 @@ def is_public_subnet(subnets, vpcId, region):
                         if rt_attribute['SubnetId'] == subnet:
                             logging.error(f'{subnet} is a public subnet')
 
-def is_valid_subnet(subnets, vpcId, region):
-    ec2 = resource('ec2', region_name=region)
+def is_valid_subnet(subnets, vpcId):
+    ec2_resource = resource('ec2', region_name=region)
     valid_subnets = []
     for subnet in subnets:
         try:
-            vpc_id = ec2.Subnet(subnet).vpc_id
+            vpc_id = ec2_resource.Subnet(subnet).vpc_id
         except BaseException as e:
             logging.error(e)
             pass
@@ -78,18 +75,18 @@ def check_list_size(selectors):
     else:
         logging.info(f'The list has {len(selectors)} elements')
 
-def check_cluster_version(version, platform_version):
+def check_cluster_version(version, platformVersion):
     if version not in ['1.14']:
         logging.error("Cluster version has to be at 1.14.8 or above to use Fargate")
         return Exception
-    elif version in ['1.14'] and platform_version not in ['eks.5', 'eks.6', 'eks.7']:
+    elif version in ['1.14'] and platformVersion not in ['eks.5', 'eks.6', 'eks.7']:
         logging.error("Cluster version has to be at 1.14.8 and eks.5 or above to use Fargate.")
         return Exception
     else:
         logging.info(f'Cluster at the correct version and patch level.')
 
-def is_valid_role(execution_role_arn):
-    role_name = execution_role_arn[execution_role_arn.rfind("/")+1:]
+def is_valid_role(executionRoleArn):
+    role_name = executionRoleArn[executionRoleArn.rfind("/")+1:]
     try:
         role = iam.Role(role_name)
     except BaseException as e:
@@ -121,28 +118,29 @@ def get_metadata():
 
 @kopf.on.delete('jicomusic.com', 'v1', 'fargateprofiles')
 def delete_fn(meta, spec, namespace, logger, **kwargs):
-    cluster_name, region = get_metadata()
+    #cluster_name, region = get_metadata()
     fargate_profile_name = meta.get('name')
     # TODO: check to see whether profile exists
     delete_fargate_profile(cluster_name, fargate_profile_name)
 
-def delete_fargate_profile(cluster_name, fargate_profile_name):
-    while eks.describe_fargate_profile(clusterName=cluster_name, fargateProfileName=fargate_profile_name)['fargateProfile']['status'] != 'ACTIVE':
+def delete_fargate_profile(clusterName, fargateProfileName):
+    while eks.describe_fargate_profile(clusterName=clusterName, fargateProfileName=fargateProfileName)['fargateProfile']['status'] != 'ACTIVE':
         sleep(5)
     try:
-        eks.delete_fargate_profile(clusterName=cluster_name, fargateProfileName=fargate_profile_name)
+        eks.delete_fargate_profile(clusterName=clusterName, fargateProfileName=fargateProfileName)
     except BaseException as e:
         logging.error(e)
-    logging.info(f'Fargate profile {fargate_profile_name} has been deleted.')
+    logging.info(f'Fargate profile {fargateProfileName} has been deleted.')
 
+@kopf.on.resume('jicomusic.com', 'v1', 'fargateprofiles')
 @kopf.on.create('jicomusic.com', 'v1', 'fargateprofiles')
 def create_fn(meta, spec, namespace, logger, **kwargs):
-    cluster_name, region = get_metadata()
     cluster = Cluster(**eks.describe_cluster(name = cluster_name)['cluster'])
     profile_name = meta.get('name')
     # TODO: Check to see whether there is a profile with the same name
     profile_spec = FargateProfile(**spec)
-    valid_subnets = is_valid_subnet(profile_spec.subnets, cluster.resourcesVpcConfig['vpcId'], region)
+    valid_subnets = is_valid_subnet(profile_spec.subnets, cluster.resourcesVpcConfig['vpcId'])
+    #is_public_subnet(valid_subnets,cluster.resourcesVpcConfig['vpcId'], region)
     if valid_subnets != []:
         if is_valid_role(profile_spec.podExecutionRoleArn) is not Exception and \
         check_cluster_version(cluster.version, cluster.platformVersion) is not Exception:
@@ -151,3 +149,9 @@ def create_fn(meta, spec, namespace, logger, **kwargs):
             logging.error(f'Invalid data in FargateProfile')
     else:
         logging.error(f'Invalid data in FargateProfile')
+
+logging.basicConfig(format='%(asctime)s [%(levelname)s] - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging.INFO)
+cluster_name, region = get_metadata()
+eks = client('eks', region_name=region)
+ec2 = client('ec2', region_name=region)
+iam = resource('iam')
