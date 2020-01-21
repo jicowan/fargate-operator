@@ -85,3 +85,7 @@ kubectl apply -f deployment.yaml
 ### Create a fargateprofile object
 With the operator running, create a new fargateprofile manifest and apply it to the cluster. For an example, see the sample-crd.yaml 
 in this repository.
+
+### Troubleshooting
+If you have trouble deleting a profile created through the operator, edit the fargateprofile's finalizer and set it to [].  
+The operator will not be able to delete objects created outside of the operator, i.e. it is not aware of Fargate Profiles created with the AWS APIs or eksctl. 
