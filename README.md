@@ -49,7 +49,7 @@ metadata:
   name: new-profile-7
 spec:
   subnets: [subnet-075aa287882d71709, subnet-0b36ca4d53f742857]
-  podExecutionRoleArn: arn:aws:iam::820537372947:role/eksctl-appmesh-workshop-cl-FargatePodExecutionRole-ZBZNZ6OBYOHE
+  podExecutionRoleArn: arn:aws:iam::123456789012:role/eksctl-cluster-workshop-cl-FargatePodExecutionRole-ZBZNZ6OBYOHE
   selectors:
   - namespace: default
     labels:
