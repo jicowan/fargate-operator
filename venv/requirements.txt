@@ -20,5 +20,5 @@ requests==2.22.0
 s3transfer==0.2.1
 six==1.13.0
 typing-extensions==3.7.4.1
-urllib3==1.25.7
+urllib3==1.26.5
 yarl==1.4.2
